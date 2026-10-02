@@ -176,35 +176,39 @@ impl ContainerStartupOptions {
     /// Sets a custom instance size. `memory_mib` is in mebibytes and
     /// `disk_mb` is in megabytes; both must be positive integers within the
     /// platform's custom-instance limits.
-    pub fn set_custom_instance(&mut self, vcpu: u32, memory_mib: u32, disk_mb: u32) {
+    pub fn set_custom_instance(
+        &mut self,
+        vcpu: u32,
+        memory_mib: u32,
+        disk_mb: u32,
+    ) -> std::result::Result<(), JsValue> {
         let obj = Object::new();
         Reflect::set(
             &obj,
             &JsValue::from_str("vcpu"),
             &JsValue::from_f64(vcpu as f64),
-        )
-        .unwrap();
+        )?;
         Reflect::set(
             &obj,
             &JsValue::from_str("memoryMib"),
             &JsValue::from_f64(memory_mib as f64),
-        )
-        .unwrap();
+        )?;
         Reflect::set(
             &obj,
             &JsValue::from_str("diskMb"),
             &JsValue::from_f64(disk_mb as f64),
-        )
-        .unwrap();
+        )?;
         self.instance = Some(obj.into());
+        Ok(())
     }
 
     /// Sets the snapshot to restore before startup, by the id returned from
     /// `snapshotContainer()`. Mutually exclusive with `set_image`.
-    pub fn set_container_snapshot(&mut self, id: &str) {
+    pub fn set_container_snapshot(&mut self, id: &str) -> std::result::Result<(), JsValue> {
         let obj = Object::new();
-        Reflect::set(&obj, &JsValue::from_str("id"), &JsValue::from_str(id)).unwrap();
+        Reflect::set(&obj, &JsValue::from_str("id"), &JsValue::from_str(id))?;
         self.container_snapshot = Some(obj.into());
+        Ok(())
     }
 
     pub fn add_label(&mut self, key: &str, value: &str) {
