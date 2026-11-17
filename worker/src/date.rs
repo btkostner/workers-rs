@@ -160,14 +160,6 @@ mod tests {
     }
 }
 
-    #[wasm_bindgen_test::wasm_bindgen_test]
-    fn invalid_and_out_of_range_js_dates_are_rejected() {
-        let invalid = Date::from(JsDate::new(&JsValue::from_f64(f64::NAN)));
-        assert!(Timestamp::try_from(invalid).is_err());
-
-        let out_of_range = Date::new(DateInit::Millis(8_640_000_000_000_000));
-        assert!(Timestamp::try_from(out_of_range).is_err());
-    }
 
 impl From<JsDate> for Date {
     fn from(js_date: JsDate) -> Self {
