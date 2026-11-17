@@ -25,6 +25,28 @@
 //! # }
 //! ```
 //!
+//! Fetch handler type errors are compile-time failures:
+//!
+//! ```compile_fail
+//! use worker::event;
+//! #[event(fetch)]
+//! async fn fetch(_a: String, _b: String, _c: String) -> Result<worker::Response, worker::Error> {
+//!     Ok(worker::Response::empty().unwrap())
+//! }
+//! ```
+//!
+//! ```compile_fail
+//! use worker::event;
+//! #[event(fetch)]
+//! async fn fetch(
+//!     _request: worker::Request,
+//!     _env: worker::Env,
+//!     _context: worker::Context,
+//! ) -> Result<String, String> {
+//!     Ok(String::new())
+//! }
+//! ```
+//!
 //! ## `http`
 //! `worker` `0.0.21` introduced an `http` feature flag which starts to replace custom types with widely used types from the [`http`](https://docs.rs/http/latest/http/) crate.
 //!
