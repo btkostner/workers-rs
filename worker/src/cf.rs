@@ -164,9 +164,10 @@ impl Cf {
     /// **Requires** `timezone` feature. Timezone of the incoming request, e.g. `America/Chicago`.
     /// Errors when the request carries no timezone (see [`Cf::timezone_name`]).
     #[cfg(feature = "timezone")]
-    pub fn timezone(&self) -> Result<impl chrono::TimeZone> {
+    pub fn timezone(&self) -> Result<jiff::tz::TimeZone> {
         let tz = self.inner.timezone()?.ok_or(crate::Error::TimezoneError)?;
-        Ok(tz.parse::<chrono_tz::Tz>()?)
+        jiff::tz::TimeZone::get(&tz)
+            .map_err(|_| crate::Error::RustError("Invalid timezone".to_string()))
     }
 
     /// Timezone name of the incoming request, e.g. `America/Chicago`.
@@ -350,6 +351,16 @@ mod tests {
         assert_eq!(
             (p.weight, p.exclusive, p.group, p.group_weight),
             (192, true, 0, 127)
+        );
+    }
+
+    #[cfg(feature = "timezone")]
+    #[wasm_bindgen_test]
+    fn timezone_lookup_uses_bundled_iana_data() {
+        let timezone = jiff::tz::TimeZone::get("America/Chicago").unwrap();
+        assert_eq!(
+            timezone.to_datetime(jiff::Timestamp::UNIX_EPOCH).to_string(),
+            "1969-12-31T18:00:00",
         );
     }
 }

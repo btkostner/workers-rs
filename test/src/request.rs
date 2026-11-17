@@ -179,8 +179,7 @@ pub async fn handle_redirect_307(
 }
 
 pub async fn handle_now(_req: Request, _env: Env, _data: SomeSharedData) -> Result<Response> {
-    let now = chrono::Utc::now();
-    let js_date: Date = now.into();
+    let js_date = Date::now();
     Response::ok(js_date.to_string())
 }
 

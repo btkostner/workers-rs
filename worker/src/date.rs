@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use chrono::offset::TimeZone;
-use chrono::Datelike;
 use js_sys::Date as JsDate;
 use wasm_bindgen::JsValue;
 
@@ -75,22 +73,53 @@ impl Display for Date {
     }
 }
 
-#[allow(deprecated)]
-impl<T: TimeZone> From<chrono::Date<T>> for Date {
-    fn from(d: chrono::Date<T>) -> Self {
+// Jiff truncates negative fractional milliseconds towards zero; JavaScript
+// dates and alarms need the containing millisecond, including before the epoch.
+pub(crate) fn timestamp_millis(timestamp: jiff::Timestamp) -> i64 {
+    timestamp.as_nanosecond().div_euclid(1_000_000) as i64
+}
+
+impl From<jiff::Timestamp> for Date {
+    fn from(timestamp: jiff::Timestamp) -> Self {
         Self {
-            js_date: JsDate::new_with_year_month_day(
-                d.year() as u32,
-                d.month() as i32 - 1,
-                d.day() as i32,
-            ),
+            js_date: JsDate::new(&JsValue::from_f64(timestamp_millis(timestamp) as f64)),
         }
     }
 }
 
-impl<T: TimeZone> From<chrono::DateTime<T>> for Date {
-    fn from(dt: chrono::DateTime<T>) -> Self {
-        DateInit::Millis(dt.timestamp_millis() as u64).into()
+impl From<jiff::ZonedDateTime> for Date {
+    fn from(datetime: jiff::ZonedDateTime) -> Self {
+        datetime.timestamp().into()
+    }
+}
+
+/// Interpret a civil date as midnight UTC, failing outside Jiff's timestamp range.
+impl TryFrom<jiff::civil::Date> for Date {
+    type Error = crate::Error;
+
+    fn try_from(date: jiff::civil::Date) -> crate::Result<Self> {
+        Ok(jiff::tz::Offset::UTC.to_timestamp(date.at(0, 0, 0, 0))?.into())
+    }
+}
+
+/// Invalid JavaScript dates and dates outside Jiff's timestamp range return an error.
+impl TryFrom<&Date> for jiff::Timestamp {
+    type Error = crate::Error;
+
+    fn try_from(date: &Date) -> crate::Result<Self> {
+        let millis = date.js_date.get_time();
+        if !millis.is_finite() {
+            return Err(crate::Error::RustError("Invalid date".into()));
+        }
+        Ok(Self::from_millisecond(millis as i64)?)
+    }
+}
+
+impl TryFrom<Date> for jiff::Timestamp {
+    type Error = crate::Error;
+
+    fn try_from(date: Date) -> crate::Result<Self> {
+        Self::try_from(&date)
     }
 }
 
@@ -99,6 +128,46 @@ impl From<Date> for JsDate {
         val.js_date
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{timestamp_millis, Date, DateInit, JsDate};
+    use jiff::Timestamp;
+    use wasm_bindgen::JsValue;
+
+    #[test]
+    fn millisecond_conversion_floors_before_epoch() {
+        let timestamp = Timestamp::new(-1, 999_500_000).unwrap();
+        assert_eq!(timestamp_millis(timestamp), -1);
+
+        let timestamp = Timestamp::new(0, 999_500_000).unwrap();
+        assert_eq!(timestamp_millis(timestamp), 999);
+    }
+
+    #[test]
+    fn millisecond_conversion_preserves_exact_negative_milliseconds() {
+        let timestamp = Timestamp::from_millisecond(-1).unwrap();
+        assert_eq!(timestamp_millis(timestamp), -1);
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn invalid_and_out_of_range_js_dates_are_rejected() {
+        let invalid = Date::from(JsDate::new(&JsValue::from_f64(f64::NAN)));
+        assert!(Timestamp::try_from(invalid).is_err());
+
+        let out_of_range = Date::new(DateInit::Millis(8_640_000_000_000_000));
+        assert!(Timestamp::try_from(out_of_range).is_err());
+    }
+}
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn invalid_and_out_of_range_js_dates_are_rejected() {
+        let invalid = Date::from(JsDate::new(&JsValue::from_f64(f64::NAN)));
+        assert!(Timestamp::try_from(invalid).is_err());
+
+        let out_of_range = Date::new(DateInit::Millis(8_640_000_000_000_000));
+        assert!(Timestamp::try_from(out_of_range).is_err());
+    }
 
 impl From<JsDate> for Date {
     fn from(js_date: JsDate) -> Self {

@@ -19,8 +19,7 @@ all-features = true
 async-trait.workspace = true
 axum = { version = "0.8", optional = true, default-features = false }
 bytes = "1.5"
-chrono-tz = { version = "0.10.3", optional = true, default-features = false }
-chrono.workspace = true
+jiff.workspace = true
 futures-channel.workspace = true
 futures-util.workspace = true
 http-body = "1"
@@ -54,7 +53,7 @@ experimental_tokio = ["worker-macros/experimental_tokio"]
 d1 = ["worker-sys/d1"]
 http = ["worker-macros/http"]
 axum = ["dep:axum"]
-timezone = ["dep:chrono-tz"]
+timezone = ["jiff/tzdb-bundle-always"]
 
 [dev-dependencies]
 trybuild.workspace = true

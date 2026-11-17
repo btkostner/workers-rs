@@ -26,7 +26,6 @@ use crate::{
 };
 use js_sys::{Boolean as JsBoolean, JsString, Object as JsObject};
 
-use chrono::{DateTime, Utc};
 use futures_util::Future;
 use js_sys::futures::{future_to_promise, JsFuture};
 use js_sys::{Map, Number, Object};
@@ -881,7 +880,7 @@ enum ScheduledTimeInit {
 /// Implements [`From`] for:
 /// - [`Duration`], interpreted as an offset (in milliseconds).
 /// - [`i64`], interpreted as an offset (in milliseconds).
-/// - [`DateTime`], interpreted as a timestamp.
+/// - [`jiff::Timestamp`] and [`jiff::ZonedDateTime`], interpreted as absolute timestamps.
 ///
 /// When an offset is used, the time at which `set_alarm()` or `set_alarm_with_options()` is called
 /// is used to compute the scheduled time. [`Date::now`] is used as the current time.
@@ -916,13 +915,15 @@ impl From<i64> for ScheduledTime {
     }
 }
 
-impl From<DateTime<Utc>> for ScheduledTime {
-    fn from(date: DateTime<Utc>) -> Self {
-        ScheduledTime {
-            init: ScheduledTimeInit::Date(js_sys::Date::new(&Number::from(
-                date.timestamp_millis() as f64,
-            ))),
-        }
+impl From<jiff::Timestamp> for ScheduledTime {
+    fn from(timestamp: jiff::Timestamp) -> Self {
+        Self::new(Date::from(timestamp).into())
+    }
+}
+
+impl From<jiff::ZonedDateTime> for ScheduledTime {
+    fn from(datetime: jiff::ZonedDateTime) -> Self {
+        datetime.timestamp().into()
     }
 }
 
@@ -1094,3 +1095,15 @@ pub trait DurableObject: has_durable_object_attribute {
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
 pub trait has_durable_object_attribute {}
+
+#[cfg(test)]
+mod scheduled_time_tests {
+    use super::ScheduledTime;
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn negative_fractional_timestamp_uses_js_date_flooring() {
+        let timestamp = jiff::Timestamp::new(-1, 999_500_000).unwrap();
+        let scheduled = ScheduledTime::from(timestamp);
+        assert_eq!(scheduled.schedule().get_time(), -1.0);
+    }
+}
